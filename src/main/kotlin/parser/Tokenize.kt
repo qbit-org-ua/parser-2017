@@ -1,11 +1,11 @@
 package parser
 
-enum class TokenType {
+enum class SimpleTokenType {
     ADD, SUB, MUL, DIV, L_PAREN, R_PAREN
 }
 
 sealed class Token
-data class SimpleToken(val tokenType: TokenType) : Token()
+data class SimpleToken(val simpleTokenType: SimpleTokenType) : Token()
 data class IntegerToken(val value: Int) : Token()
 
 fun tokenize(str: String): List<Token> {
@@ -18,20 +18,20 @@ fun tokenize(str: String): List<Token> {
         }
     }
 
-    fun consume(tokenType: TokenType) {
-        tokens.add(SimpleToken(tokenType))
-        ++i
-    }
-
     skipSpaces()
     while (i < str.length) {
+        fun consume(simpleTokenType: SimpleTokenType) {
+            tokens.add(SimpleToken(simpleTokenType))
+            ++i
+        }
+
         when (str[i]) {
-            '+' -> consume(TokenType.ADD)
-            '-' -> consume(TokenType.SUB)
-            '*' -> consume(TokenType.MUL)
-            '/' -> consume(TokenType.DIV)
-            '(' -> consume(TokenType.L_PAREN)
-            ')' -> consume(TokenType.R_PAREN)
+            '+' -> consume(SimpleTokenType.ADD)
+            '-' -> consume(SimpleTokenType.SUB)
+            '*' -> consume(SimpleTokenType.MUL)
+            '/' -> consume(SimpleTokenType.DIV)
+            '(' -> consume(SimpleTokenType.L_PAREN)
+            ')' -> consume(SimpleTokenType.R_PAREN)
             in '0'..'9' -> {
                 var value = 0
                 while (i < str.length && str[i] in '0'..'9') {

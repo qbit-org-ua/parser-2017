@@ -17,77 +17,74 @@ Prim
     | (Expr)
  */
 
-fun parse(tokens: List<Token>): Int {
+private class Parser(val tokens: List<Token>, var i: Int = 0) {
 
-    class Parser(var i: Int = 0) {
-
-        fun parse(): Int {
-            val result = parseExpression()
-            if (i != tokens.size) {
-                throw RuntimeException("incorrect expression")
-            }
-            return result
+    fun parse(): Int {
+        val result = parseExpression()
+        if (i != tokens.size) {
+            throw RuntimeException("incorrect expression")
         }
-
-        fun parseExpression(): Int {
-            var result = parseTerm()
-            while (i < tokens.size &&
-                    (tokens[i] == SimpleToken(TokenType.ADD) ||
-                            tokens[i] == SimpleToken(TokenType.SUB))) {
-                if (tokens[i] == SimpleToken(TokenType.ADD)) {
-                    ++i
-                    result += parseTerm()
-                } else {
-                    ++i
-                    result -= parseTerm()
-                }
-            }
-            return result
-        }
-
-        fun parseTerm(): Int {
-            var result = parsePrim()
-            while (i < tokens.size &&
-                    (tokens[i] == SimpleToken(TokenType.MUL) ||
-                            tokens[i] == SimpleToken(TokenType.DIV))) {
-                if (tokens[i] == SimpleToken(TokenType.MUL)) {
-                    ++i
-                    result *= parsePrim()
-                } else {
-                    ++i
-                    result /= parsePrim()
-                }
-            }
-            return result
-        }
-
-        fun parsePrim(): Int {
-            if (i == tokens.size) {
-                throw RuntimeException("incorrect expression")
-            }
-            val token = tokens[i]
-            ++i
-            return when (token) {
-                is IntegerToken -> {
-                    token.value
-                }
-                SimpleToken(TokenType.SUB) -> parsePrim()
-                SimpleToken(TokenType.L_PAREN) -> {
-                    val result = parseExpression()
-                    if (i == tokens.size || tokens[i] != SimpleToken(TokenType.R_PAREN)) {
-                        throw RuntimeException("incorrect expression")
-                    }
-                    ++i
-                    result
-                }
-                else -> {
-                    throw RuntimeException("incorrect expression")
-                }
-            }
-        }
+        return result
     }
 
-    return Parser().parse()
+    fun parseExpression(): Int {
+        var result = parseTerm()
+        while (i < tokens.size &&
+                (tokens[i] == SimpleToken(SimpleTokenType.ADD) ||
+                        tokens[i] == SimpleToken(SimpleTokenType.SUB))) {
+            if (tokens[i] == SimpleToken(SimpleTokenType.ADD)) {
+                ++i
+                result += parseTerm()
+            } else {
+                ++i
+                result -= parseTerm()
+            }
+        }
+        return result
+    }
+
+    fun parseTerm(): Int {
+        var result = parsePrim()
+        while (i < tokens.size &&
+                (tokens[i] == SimpleToken(SimpleTokenType.MUL) ||
+                        tokens[i] == SimpleToken(SimpleTokenType.DIV))) {
+            if (tokens[i] == SimpleToken(SimpleTokenType.MUL)) {
+                ++i
+                result *= parsePrim()
+            } else {
+                ++i
+                result /= parsePrim()
+            }
+        }
+        return result
+    }
+
+    fun parsePrim(): Int {
+        if (i == tokens.size) {
+            throw RuntimeException("incorrect expression")
+        }
+        val token = tokens[i]
+        ++i
+        return when (token) {
+            is IntegerToken -> {
+                token.value
+            }
+            SimpleToken(SimpleTokenType.SUB) -> parsePrim()
+            SimpleToken(SimpleTokenType.L_PAREN) -> {
+                val result = parseExpression()
+                if (i == tokens.size || tokens[i] != SimpleToken(SimpleTokenType.R_PAREN)) {
+                    throw RuntimeException("incorrect expression")
+                }
+                ++i
+                result
+            }
+            else -> throw RuntimeException("incorrect expression")
+        }
+    }
+}
+
+fun parse(tokens: List<Token>): Int {
+    return Parser(tokens).parse()
 }
 
 fun parse(str: String): Int {

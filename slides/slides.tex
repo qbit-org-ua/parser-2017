@@ -1,0 +1,429 @@
+\documentclass[pdf,russian]{beamer}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{booktabs}
+\usepackage{minted}
+\usepackage{tikz}
+
+\usetikzlibrary{trees}
+
+\selectlanguage{russian}
+
+\mode<presentation>{
+    \usetheme{CambridgeUS}
+    \useoutertheme{infolines}
+}
+
+%% preamble
+\title{Парсеры}
+\subtitle{немного обо всём}
+\author{Артем Оганджанян}
+\institute{ЛОЛ-2017}
+\date{21 августа 2017 г.}
+
+\begin{document}
+
+\AtBeginSection[]
+{
+   \begin{frame}
+       \frametitle{Оглавление}
+       \tableofcontents[currentsection]
+   \end{frame}
+}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\section{Калькулятор}
+\subsection{Задача}
+
+\begin{frame}[fragile]
+    \frametitle{Калькулятор}
+    \begin{block}{Задача}
+        Command-line interface калькулятор.
+    \end{block}
+
+    \pause
+
+    \begin{exampleblock}{Пример}
+        \begin{semiverbatim}
+\$ ./calculator
+> 2 + 2
+4
+> 1 + 2 * (3 + 27 / 9)
+13
+> 123(321
+syntax error
+        \end{semiverbatim}
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Проблемы:}
+    \pause
+    \begin{itemize}
+        \item скобки,
+        \pause
+        \item приоритет операций,
+        \pause
+        \item унарный минус,
+        \pause
+        \item линейное время работы\dots
+    \end{itemize}
+\end{frame}
+
+\subsection{Лексемы}
+
+\begin{frame}
+    \frametitle{Лексемы}
+    \begin{block}{Лексема}
+        Набор символов, образующих синтаксическую единицу.
+    \end{block}
+
+    \pause
+
+    \[
+        \text{Input: \tt{`(21 + 8) * 2017'}}
+    \]
+
+    \pause
+
+    \begin{table}
+    \begin{tabular}{l @{\hspace{1cm}} rrrrrrr} \toprule
+        Символы & \tt ( & \tt{21} & \tt + & \tt 8 & \tt ) & \tt *    & \tt{2017} \\
+        Токены  &    $($& число   &    $+$& число &    $)$& $\times$ & число \\
+        \bottomrule
+    \end{tabular}
+    \end{table}
+
+    \pause
+
+    \[
+        \text{Output: [`$($', число, `$+$', число, `$)$', `$\times$', число]}
+    \]
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \pause
+    \begin{minted}{kotlin}
+enum class SimpleTokenType {
+    ADD, SUB, MUL, DIV, L_PAREN, R_PAREN
+}
+
+sealed class Token
+data class SimpleToken(val simpleTokenType: SimpleTokenType)
+    : Token()
+data class IntegerToken(val value: Int)
+    : Token()
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+fun tokenize(str: String): List<Token> {
+    var i = 0
+    val tokens = ArrayList<Token>()
+
+    fun skipSpaces() {
+        while (i < str.length && str[i].isWhitespace()) {
+            ++i
+        }
+    }
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+    skipSpaces()
+    while (i < str.length) {
+        fun consume(simpleTokenType: SimpleTokenType) {
+            tokens.add(SimpleToken(simpleTokenType))
+            ++i
+        }
+
+        when (str[i]) {
+            '+' -> consume(SimpleTokenType.ADD)
+            '-' -> consume(SimpleTokenType.SUB)
+            '*' -> consume(SimpleTokenType.MUL)
+            '/' -> consume(SimpleTokenType.DIV)
+            '(' -> consume(SimpleTokenType.L_PAREN)
+            ')' -> consume(SimpleTokenType.R_PAREN)
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+            in '0'..'9' -> {
+                var value = 0
+                while (i < str.length && str[i] in '0'..'9') {
+                    value = value * 10 + (str[i] - '0')
+                    ++i
+                }
+                tokens.add(IntegerToken(value))
+            }
+            else -> throw RuntimeException("error")
+        }
+        skipSpaces()
+    }
+
+    return tokens
+}
+    \end{minted}
+\end{frame}
+
+\subsection{Абстрактное синтаксическое дерево}
+
+\begin{frame}
+    \frametitle{Как понять, в каком порядке вычислять операции?}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \onslide<2->Имеем:
+        \column{0.5\textwidth}
+        \onslide<3->Хотим получить:
+    \end{columns}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \onslide<2->
+        \[
+            (1 + 2) \times (3 + 27 / 9)
+        \]
+
+        \column{0.5\textwidth}
+        \onslide<3->
+        \center
+        \begin{tikzpicture}[level 1/.style={sibling distance=5em},level 2/.style={sibling distance=3em}]]
+            \node {$\times$}
+            child {
+                node {$+$}
+                child { node {1} }
+                child { node {2} }
+            }
+            child {
+                node {$+$}
+                child { node {3} }
+                child {
+                    node {$/$}
+                    child { node {27} }
+                    child { node {9} }
+                }
+            };
+        \end{tikzpicture}
+    \end{columns}
+    \onslide<4->Такое дерево называется \emph{абстрактным синтаксическим деревом}.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Грамматика}
+    \pause
+    \begin{tabular}{lcl}
+        $\langle$Выражение$\rangle$  & $::=$ & $\langle$Выражение$\rangle$ `$+$' $\langle$Слагаемое$\rangle$ \\
+                                     & $ | $ & $\langle$Выражение$\rangle$ `$-$' $\langle$Слагаемое$\rangle$ \\
+                                     & $ | $ & $\langle$Слагаемое$\rangle$ \\ \\
+        \pause
+        $\langle$Слагаемое$\rangle$  & $::=$ & $\langle$Слагаемое$\rangle$ `$\times$' $\langle$Умножаемое$\rangle$ \\
+                                     & $ | $ & $\langle$Слагаемое$\rangle$ `$/$' $\langle$Умножаемое$\rangle$ \\
+                                     & $ | $ & $\langle$Умножаемое$\rangle$ \\ \\
+        \pause
+        $\langle$Умножаемое$\rangle$ & $::=$ & Число \\
+                                     & $ | $ & `$-$'$\langle$Умножаемое$\rangle$ \\
+                                     & $ | $ & `$($'$\langle$Выражение$\rangle$`$)$'
+    \end{tabular}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Дерево разбора}
+    \begin{columns}
+        \column{0.3\textwidth}
+        \[
+            (1 + 2) \times 6
+        \]
+
+        \column{0.7\textwidth}
+        \center
+        \begin{tikzpicture}[level distance=0.8cm,sibling distance=5em]
+            \node {$\langle$Выражение$\rangle$}
+            child {
+                node {$\langle$Слагаемое$\rangle$}
+                child {
+                    node {$\langle$Слагаемое$\rangle$}
+                    child {
+                        node {$\langle$Умножаемое$\rangle$}
+                        child { node {`$($'} }
+                        child {
+                            node {$\langle$Выражение$\rangle$}
+                            child {
+                                node {$\langle$Выражение$\rangle$}
+                                child {
+                                    node {$\langle$Слагаемое$\rangle$}
+                                    child {
+                                        node {$\langle$Умножаемое$\rangle$}
+                                        child {
+                                            node {Число}
+                                        }
+                                    }
+                                }
+                            }
+                            child { node {`$+$'} }
+                            child {
+                                node {$\langle$Слагаемое$\rangle$}
+                                child {
+                                    node {$\langle$Умножаемое$\rangle$}
+                                    child {
+                                        node {Число}
+                                    }
+                                }
+                            }
+                        }
+                        child { node {`$)$'} }
+                    }
+                }
+                child { node {`$\times$'} }
+                child {
+                    node {$\langle$Умножаемое$\rangle$}
+                    child { node {Число} }
+                }
+            };
+        \end{tikzpicture}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Составление грамматики}
+    Разбор выражения `$1-2-3$'.
+    \center
+    $\langle$Выражение$\rangle$ $::=$
+    \begin{columns}
+        \column{0.5\textwidth}
+        \center
+        $\langle$Выражение$\rangle$ `$-$' $\langle$Слагаемое$\rangle$
+        \hspace{2cm}
+        \begin{tikzpicture}
+            \node {$-$}
+            child {
+                node {$-$}
+                child { node {1} }
+                child { node {2} }
+            }
+            child { node {3} };
+        \end{tikzpicture}
+        \[
+            1-2-3=-4
+        \]
+        \column{0.5\textwidth}
+        \center
+        $\langle$Слагаемое$\rangle$ `$-$' $\langle$Выражение$\rangle$
+        \hspace{2cm}
+        \begin{tikzpicture}
+            \node {$-$}
+            child { node {1} }
+            child {
+                node {$-$}
+                child { node {2} }
+                child { node {3} }
+            };
+        \end{tikzpicture}
+        \[
+            1-2-3=1-(2-3)=1?
+        \]
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \pause
+    \begin{minted}{kotlin}
+class Parser(val tokens: List<Token>, var i: Int = 0) {
+  fun parse(): Int {
+    val result = parseExpression()
+    if (i != tokens.size) {
+      throw RuntimeException("incorrect expression")
+    }
+    return result
+  }
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+  fun parseExpression(): Int {
+    var result = parseTerm()
+    while (i < tokens.size &&
+        (tokens[i] == SimpleToken(SimpleTokenType.ADD) ||
+         tokens[i] == SimpleToken(SimpleTokenType.SUB))) {
+      if (tokens[i] == SimpleToken(SimpleTokenType.ADD)) {
+          ++i
+          result += parseTerm()
+      } else {
+          ++i
+          result -= parseTerm()
+      }
+    }
+    return result
+  }
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+  fun parseTerm(): Int {
+    var result = parsePrim()
+    while (i < tokens.size &&
+        (tokens[i] == SimpleToken(SimpleTokenType.MUL) ||
+         tokens[i] == SimpleToken(SimpleTokenType.DIV))) {
+      if (tokens[i] == SimpleToken(SimpleTokenType.MUL)) {
+          ++i
+          result *= parsePrim()
+      } else {
+          ++i
+          result /= parsePrim()
+      }
+    }
+    return result
+  }
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+  fun parsePrim(): Int {
+    if (i == tokens.size) {
+        throw RuntimeException("incorrect expression")
+    }
+    val token = tokens[i]
+    ++i
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Код}
+    \begin{minted}{kotlin}
+  return when (token) {
+    is IntegerToken -> {
+      token.value
+    }
+    SimpleToken(SimpleTokenType.SUB) -> parsePrim()
+    SimpleToken(SimpleTokenType.L_PAREN) -> {
+      val result = parseExpression()
+      if (i == tokens.size ||
+          tokens[i] != SimpleToken(SimpleTokenType.R_PAREN)) {
+        throw RuntimeException("incorrect expression")
+      }
+      ++i
+      result
+    }
+    else -> throw RuntimeException("incorrect expression")
+  }
+    \end{minted}
+\end{frame}
+
+\end{document}
